@@ -6,12 +6,12 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-s
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyBF0M8bVZ1wi2MHV_gT7yL9rUTUPrVDghE",
-    authDomain: "husoon-5b2f3.firebaseapp.com",
-    projectId: "husoon-5b2f3",
-    storageBucket: "husoon-5b2f3.appspot.com",
-    messagingSenderId: "1312564028",
-    appId: "1:1312564028:web:c2e3465f2a9ba8cb873439"
+    apiKey: "AIzaSyBRMgzPQliVg9TC0BaKWkLnPp1khq21rYo",
+    authDomain: "alaa-eldin-f25c9.firebaseapp.com",
+    projectId: "alaa-eldin-f25c9",
+    storageBucket: "alaa-eldin-f25c9.firebasestorage.app",
+    messagingSenderId: "505768288190",
+    appId: "1:505768288190:web:865230050fd6e56be223ef"
 };
 
 // Initialize Firebase

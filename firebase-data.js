@@ -20,9 +20,9 @@ window.fsData = {
     uploadFile: async (file, path) => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', 'husoon');
+        formData.append('upload_preset', 'alaa-eldin');
 
-        const response = await fetch('https://api.cloudinary.com/v1_1/dnbpfkeuk/auto/upload', {
+        const response = await fetch('https://api.cloudinary.com/v1_1/dt1nytaju/auto/upload', {
             method: 'POST',
             body: formData
         });
@@ -32,7 +32,11 @@ window.fsData = {
         }
 
         const data = await response.json();
-        return data.secure_url;
+        let url = data.secure_url;
+        if (data.resource_type === 'image' && url) {
+            url = url.replace('/upload/', '/upload/f_auto,q_auto/');
+        }
+        return url;
     },
 
     uploadPdfToFirebase: async (file) => {

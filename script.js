@@ -1225,6 +1225,7 @@ window.updateProfileImg = async function (input) {
 
         let file = input.files[0];
         try {
+            document.body.style.cursor = 'wait';
             let imgUrl = await window.uploadToCloudinary(file);
             localStorage.setItem('spedia_profile_img_' + user.code, imgUrl);
             user.profileImg = imgUrl; // Update local user object
@@ -1237,6 +1238,8 @@ window.updateProfileImg = async function (input) {
             document.getElementById('sidebar-profile-img').src = imgUrl;
         } catch (e) {
             alert('خطأ أثناء رفع الصورة: ' + e.message);
+        } finally {
+            document.body.style.cursor = 'default';
         }
     }
 }
@@ -1457,9 +1460,9 @@ window.uploadToCloudinary = async function (file) {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', 'husoon');
+    formData.append('upload_preset', 'alaa-eldin');
 
-    const response = await fetch(`https://api.cloudinary.com/v1_1/dnbpfkeuk/${resourceType}/upload`, {
+    const response = await fetch(`https://api.cloudinary.com/v1_1/dt1nytaju/${resourceType}/upload`, {
         method: 'POST',
         body: formData
     });
@@ -1471,7 +1474,11 @@ window.uploadToCloudinary = async function (file) {
     }
 
     const data = await response.json();
-    return data.secure_url;
+    let url = data.secure_url;
+    if (data.resource_type === 'image' && url) {
+        url = url.replace('/upload/', '/upload/f_auto,q_auto/');
+    }
+    return url;
 };
 
 
