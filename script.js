@@ -1393,7 +1393,7 @@ window.injectThemeButton = function () {
             .golden-theme .container { background-color: transparent !important; border:none !important; box-shadow:none !important; }
             
             /* Text elements override */
-            .golden-theme h1, .golden-theme h2, .golden-theme h3, .golden-theme h4, .golden-theme h5 { color: #f2ce63 !important; }
+            .golden-theme h1, .golden-theme h2, .golden-theme h3, .golden-theme h4, .golden-theme h5, .golden-theme label, .golden-theme .admin-nav button { color: #f2ce63 !important; }
             .golden-theme span, .golden-theme p, .golden-theme div, .golden-theme li, .golden-theme td, .golden-theme th { color: #e2cca6 !important; }
             .golden-theme .highlight { color: #ffffff !important; text-shadow: 0 0 10px rgba(212,175,55,0.7) !important; background: none !important; -webkit-text-fill-color: #ffd700 !important; }
             
@@ -1475,7 +1475,7 @@ window.uploadToCloudinary = async function (file) {
 
     const data = await response.json();
     let url = data.secure_url;
-    if (data.resource_type === 'image' && url) {
+    if (data.resource_type === 'image' && url && !url.toLowerCase().endsWith('.pdf')) {
         url = url.replace('/upload/', '/upload/f_auto,q_auto/');
     }
     return url;

@@ -229,6 +229,7 @@
                     <label>النوع</label>
                     <select id="ct-type" onchange="
                         document.getElementById('yt-container').style.display = this.value === 'course' ? 'block' : 'none';
+                        document.getElementById('yt-link-container').style.display = this.value === 'course' ? 'block' : 'none';
                         document.getElementById('pdf-container').style.display = this.value === 'course' ? 'none' : 'block';
                         document.getElementById('img-container').style.display = 'block';
                         ">
@@ -265,6 +266,10 @@
                 <div class="form-group" id="yt-container" style="display:none;">
                     <label>ملف فيديو الكورس (الرفع المباشر)</label>
                     <input type="file" id="ct-yt" accept="video/*">
+                </div>
+                <div class="form-group" id="yt-link-container" style="display:none;">
+                    <label>رابط فيديو الكورس (يوتيوب أو خارجي)</label>
+                    <input type="url" id="ct-yt-link" placeholder="أدخل رابط الفيديو هنا">
                 </div>
                 <div class="form-group" id="pdf-container">
                     <label>ملف الكتاب / المذكرة (PDF - الرفع المباشر)</label>
@@ -523,6 +528,10 @@
                 <div class="form-group">
                     <label>السعر الأساسي (ج.م)</label>
                     <input type="number" id="edit-price" required>
+                </div>
+                <div class="form-group" id="edit-yt-link-container" style="display:none;">
+                    <label>رابط فيديو الكورس (يوتيوب أو خارجي)</label>
+                    <input type="url" id="edit-yt-link" placeholder="أدخل رابط الفيديو هنا">
                 </div>
                 <div class="form-group">
                     <label>تغيير الصورة (اتركه فارغاً لعدم التغيير)</label>
@@ -955,6 +964,16 @@
             document.getElementById('edit-course-code').value = content.courseCode || '';
             document.getElementById('edit-price').value = content.priceBase || 0;
 
+            let ytLinkContainer = document.getElementById('edit-yt-link-container');
+            let ytLinkInput = document.getElementById('edit-yt-link');
+            if (content.type === 'course') {
+                ytLinkContainer.style.display = 'block';
+                ytLinkInput.value = content.videoUrl || '';
+            } else {
+                ytLinkContainer.style.display = 'none';
+                ytLinkInput.value = '';
+            }
+
             document.getElementById('edit-content-modal').style.display = 'flex';
         };
 
@@ -969,12 +988,16 @@
             let courseCode = document.getElementById('edit-course-code').value;
             let priceBase = parseInt(document.getElementById('edit-price').value) || 0;
             let fileInput = document.getElementById('edit-image');
+            let ytLinkInput = document.getElementById('edit-yt-link');
 
             let updates = { title, courseCode, priceBase };
 
             try {
                 if (fileInput.files && fileInput.files[0]) {
                     updates.image = await window.uploadToCloudinary(fileInput.files[0]);
+                }
+                if (ytLinkInput && ytLinkInput.value) {
+                    updates.videoUrl = ytLinkInput.value;
                 }
 
                 // update local storage
@@ -1057,7 +1080,10 @@
 
                 if (newItem.type === 'course') {
                     let ytEl = document.getElementById('ct-yt');
-                    if (ytEl && ytEl.files && ytEl.files[0]) {
+                    let ytLinkEl = document.getElementById('ct-yt-link');
+                    if (ytLinkEl && ytLinkEl.value) {
+                        newItem.videoUrl = ytLinkEl.value;
+                    } else if (ytEl && ytEl.files && ytEl.files[0]) {
                         try {
                             btn.innerText = "جاري رفع الفيديو... (يرجى عدم إغلاق الصفحة)";
                             newItem.videoUrl = await window.uploadToCloudinary(ytEl.files[0]);
