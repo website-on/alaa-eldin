@@ -152,7 +152,8 @@ window.injectBookTransition = function () {
     document.querySelectorAll('a').forEach(a => {
         a.addEventListener('click', function (e) {
             let target = this.getAttribute('href');
-            if (target && !target.startsWith('#') && !target.startsWith('javascript')) {
+            let isBlank = this.getAttribute('target') === '_blank';
+            if (target && !target.startsWith('#') && !target.startsWith('javascript') && !isBlank) {
                 e.preventDefault();
                 loader.style.display = 'flex';
                 document.querySelector('.book-left').style.transform = 'perspective(1500px) rotateY(0deg)';
@@ -438,8 +439,12 @@ window.renderCards = function (containerId, items, whatsappPrefix, btnText, isMy
                 let ytLink = item.videoUrl ? item.videoUrl : (item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '#');
                 btnHtml = `<button onclick="window.open('${ytLink}', '_blank')" class="btn-primary w-100" style="width:100%; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32);"><i class="fas fa-play-circle" style="font-size:24px;"></i> شاهد الفيديو الآن </button>`;
             } else {
-                let pdfLink = item.pdfUrl || '#';
-                btnHtml = `<a href="${pdfLink}" target="_blank" class="btn-primary w-100" style="display:block; text-align:center; box-sizing:border-box; width:100%; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32); text-decoration:none;"><i class="fas fa-book-open" style="font-size:24px;"></i> تصفح الكتاب </a>`;
+                let originalPdf = item.pdfUrl || '#';
+                let pdfLink = originalPdf !== '#' ? `https://docs.google.com/viewer?url=${encodeURIComponent(originalPdf)}&embedded=true` : '#';
+                btnHtml = `<div style="display:flex; gap:10px; width:100%;">
+                    <a href="${originalPdf}" target="_blank" class="btn-primary" style="flex:1; text-align:center; padding:15px; border-radius:12px; font-size:16px; background:linear-gradient(135deg, #12b8c5, #1e3c72); text-decoration:none;"><i class="fas fa-download"></i> تحميل</a>
+                    <a href="${pdfLink}" target="_blank" class="btn-primary" style="flex:2; text-align:center; padding:15px; border-radius:12px; font-size:16px; background:linear-gradient(135deg, #4caf50, #2e7d32); text-decoration:none;"><i class="fas fa-book-open"></i> تصفح الكتاب </a>
+                </div>`;
             }
         } else {
             if (isMySubscriptions) {
@@ -688,7 +693,7 @@ window.submitCartOrder = function (e) {
 
     localStorage.removeItem('spedia_cart');
     document.getElementById('cart-modal').style.display = 'none';
-    sendWhatsApp(msg);
+    window.sendWhatsApp(msg);
 }
 
 window.openMySubscriptions = async function () {
@@ -1455,8 +1460,7 @@ window.injectWhatsAppButton = function () {
 window.uploadToCloudinary = async function (file) {
     if (!file) throw new Error("الملف غير موجود");
 
-    // Force 'auto' so Cloudinary puts PDFs in the 'image' bucket where transformations are permitted
-    let resourceType = 'auto';
+    let resourceType = file.name.toLowerCase().endsWith('.pdf') ? 'raw' : 'auto';
 
     const formData = new FormData();
     formData.append('file', file);
