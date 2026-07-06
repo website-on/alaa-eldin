@@ -418,6 +418,26 @@ window.renderCurrentPage = async function () {
     document.querySelectorAll('.animate-on-scroll, .subject-card').forEach(el => observer.observe(el));
 };
 
+window.formatPdfUrl = function (url) {
+    if (!url || typeof url !== 'string' || url === '#') return '#';
+    let clean = url.trim();
+    if (clean.includes('drive.google.com') && clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)) {
+        let match = clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+        return `https://docs.google.com/document/d/${match[1]}/preview`;
+    }
+    if (clean.includes('drive.google.com') && clean.includes('/d/')) {
+        let match = clean.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) return `https://drive.google.com/file/d/${match[1]}/preview`;
+    } else if (clean.includes('drive.google.com')) {
+        clean = clean.replace('/view', '/preview');
+    }
+    if (!clean.startsWith('http') && !clean.startsWith('//')) clean = 'https://' + clean;
+    if (!clean.includes('drive.google.com') && !clean.includes('#toolbar=0') && !clean.includes('docs.google.com')) {
+        clean += (clean.includes('?') ? '&' : '#') + 'toolbar=0';
+    }
+    return clean;
+};
+
 window.renderCards = function (containerId, items, whatsappPrefix, btnText, isMySubscriptions = false) {
     let cont = document.getElementById(containerId);
     if (!cont) return;
@@ -439,19 +459,10 @@ window.renderCards = function (containerId, items, whatsappPrefix, btnText, isMy
                 let ytLink = item.videoUrl ? item.videoUrl : (item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '#');
                 btnHtml = `<button onclick="window.open('${ytLink}', '_blank')" class="btn-primary w-100" style="width:100%; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32);"><i class="fas fa-play-circle" style="font-size:24px;"></i> شاهد الفيديو الآن </button>`;
             } else {
-                let originalPdf = item.pdfUrl || '#';
-                let pdfLink = originalPdf;
-
-                if (pdfLink.includes('drive.google.com')) {
-                    pdfLink = pdfLink.replace('/view', '/preview').replace('usp=share_link', '').replace('usp=sharing', '');
-                } else if (pdfLink !== '#') {
-                    if (!pdfLink.includes('#toolbar=0')) {
-                        pdfLink += (pdfLink.includes('?') ? '&' : '#') + 'toolbar=0';
-                    }
-                }
+                let pdfLink = window.formatPdfUrl(item.pdfUrl);
 
                 btnHtml = `<div style="display:flex; gap:10px; width:100%;">
-                    <a href="${pdfLink}" target="_blank" class="btn-primary w-100" style="text-align:center; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32); text-decoration:none;"><i class="fas fa-book-open"></i> تصفح المذكرة </a>
+                    <a href="${pdfLink}" target="_blank" rel="noopener noreferrer" class="btn-primary w-100" style="text-align:center; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32); text-decoration:none;"><i class="fas fa-book-open"></i> تصفح المذكرة </a>
                 </div>`;
             }
         } else {
@@ -775,11 +786,19 @@ window.injectMySubscriptionsBtn = function () {
     }
 };
 
-window.submitExam = function (title) {
+window.submitExam = async function (title) {
     let user = JSON.parse(localStorage.getItem('spedia_currentUser'));
     if (!user) return alert("الرجاء تسجيل الدخول أولاً");
 
-    let allExams = JSON.parse(localStorage.getItem('spedia_exams') || '[]');
+    let allExams = [];
+    if (window.fsData && window.fsData.getAllExams) {
+        try { allExams = await window.fsData.getAllExams(); localStorage.setItem('spedia_exams', JSON.stringify(allExams)); }
+        catch (e) { console.warn("Failed fetching exams", e); }
+    }
+    if (!allExams.length) {
+        allExams = JSON.parse(localStorage.getItem('spedia_exams') || '[]');
+    }
+
     let currentExam = allExams.find(ex => ex.title === title);
 
     // Fallback if exam object not found
@@ -859,7 +878,7 @@ window.submitExam = function (title) {
                 ${questionsHtml}
             </div>
             <div style="padding:20px 30px; background:#fff; border-top:1px solid #eee; text-align:left;">
-                <button onclick="finishQuiz('${title}')" class="btn-primary" style="background:linear-gradient(135deg, #4caf50, #2e7d32); width:100%; font-size:22px; padding:15px;">تسليم الإجابات وإغلاق <i class="fas fa-paper-plane"></i></button>
+                <button onclick="window.finishQuiz(this.dataset.title)" data-title="${title.replace(/"/g, '&quot;')}" class="btn-primary" style="background:linear-gradient(135deg, #4caf50, #2e7d32); width:100%; font-size:22px; padding:15px;">تسليم الإجابات وإغلاق <i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     `;
@@ -959,8 +978,9 @@ window.loadStudentData = async function (user) {
 
     let exams = [];
     if (window.fsData) {
-        exams = await window.fsData.getAllExams();
-    } else {
+        try { exams = await window.fsData.getAllExams(); localStorage.setItem('spedia_exams', JSON.stringify(exams)); } catch (e) { }
+    }
+    if (!exams || !exams.length) {
         exams = JSON.parse(localStorage.getItem('spedia_exams') || '[]');
     }
 
@@ -978,7 +998,7 @@ window.loadStudentData = async function (user) {
                             <span style="font-size:12px; color:#6a7c92; font-weight:700;"><i class="fas fa-clock"></i> وقت الحل: ${ex.durationMinutes} دقيقة</span>
                         </div>
                     </div>
-                    <button class="btn-icon" style="margin-left:15px; background:#e8f5e9; color:#4caf50; border:none;" onclick="submitExam('${ex.title}')"><i class="fas fa-play"></i></button>
+                    <button class="btn-icon" style="margin-left:15px; background:#e8f5e9; color:#4caf50; border:none;" onclick="window.submitExam(this.dataset.title)" data-title="${ex.title.replace(/"/g, '&quot;')}"><i class="fas fa-play"></i></button>
                 </div>
             `).join('');
         } else {
@@ -1092,19 +1112,14 @@ window.loadStudentData = async function (user) {
         let myFiles = aFiles.filter(a => a.grade === String(user.grade));
         if (myFiles.length) {
             adminFilesCont.innerHTML = myFiles.map(f => {
-                let dUrl = f.url || '#';
-                if (dUrl.includes('drive.google.com')) {
-                    dUrl = dUrl.replace('/view', '/preview').replace('usp=share_link', '').replace('usp=sharing', '');
-                } else if (dUrl !== '#') {
-                    if (!dUrl.includes('#toolbar=0')) dUrl += (dUrl.includes('?') ? '&' : '#') + 'toolbar=0';
-                }
+                let dUrl = window.formatPdfUrl(f.url);
                 return `
                 <div class="animate-on-scroll" style="background:#f4f7fa; border:1px solid #ccc; border-radius:12px; padding:15px; display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <h4 style="font-weight:700; color:#444;">${f.title}</h4>
                         <span style="font-size:12px; color:#888;">${f.date}</span>
                     </div>
-                    <a href="${dUrl}" target="_blank" class="btn-primary" style="background:var(--primary-dark); padding:8px 15px; font-size:14px;"><i class="fas fa-eye"></i> تصفح/معاينة</a>
+                    <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background:var(--primary-dark); padding:8px 15px; font-size:14px;"><i class="fas fa-eye"></i> تصفح/معاينة</a>
                 </div>
             `}).join('');
         } else {
@@ -1125,12 +1140,7 @@ window.loadStudentData = async function (user) {
         }
         if (cFiles.length) {
             customCont.innerHTML = cFiles.map(c => {
-                let attachUrl = c.fileUrl || '';
-                if (attachUrl.includes('drive.google.com')) {
-                    attachUrl = attachUrl.replace('/view', '/preview').replace('usp=share_link', '').replace('usp=sharing', '');
-                } else if (attachUrl) {
-                    if (!attachUrl.includes('#toolbar=0')) attachUrl += (attachUrl.includes('?') ? '&' : '#') + 'toolbar=0';
-                }
+                let attachUrl = window.formatPdfUrl(c.fileUrl);
 
                 return `
                 <div class="animate-on-scroll" style="background:#fff; border-right:5px solid #12b8c5; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:10px; box-shadow:0 5px 15px rgba(0,0,0,0.05);">
@@ -1138,8 +1148,8 @@ window.loadStudentData = async function (user) {
                         <h4 style="font-weight:800; font-size:18px; color:#121e33;">${c.title}</h4>
                         <span style="font-size:12px; background:#e8fbff; color:#12b8c5; padding:5px 10px; border-radius:5px; font-weight:bold;">${c.type}</span>
                     </div>
-                    ${c.url ? (c.url.includes('http') || c.url.includes('www.') || c.url.includes('.com') ? `<a href="${c.url.startsWith('http') ? c.url : 'https://' + c.url}" target="_blank" style="color:#f44336; font-weight:bold; text-decoration:underline; font-size:14px;"><i class="fas fa-external-link-alt"></i> فتح الرابط المرفق</a>` : `<p style="font-size:15px; color:#444; background:#f4f7fa; padding:10px; border-radius:8px; border-right:3px solid #ff9800; font-weight:bold;">${c.url}</p>`) : ''}
-                    ${attachUrl ? `<a href="${attachUrl}" target="_blank" class="btn-primary" style="align-self:flex-start; padding:8px 15px; font-size:14px;"><i class="fas fa-eye"></i> معاينة المرفق</a>` : ''}
+                    ${c.url ? (c.url.includes('http') || c.url.includes('www.') || c.url.includes('.com') ? `<a href="${window.formatPdfUrl(c.url)}" target="_blank" rel="noopener noreferrer" style="color:#f44336; font-weight:bold; text-decoration:underline; font-size:14px;"><i class="fas fa-external-link-alt"></i> فتح الرابط المرفق</a>` : `<p style="font-size:15px; color:#444; background:#f4f7fa; padding:10px; border-radius:8px; border-right:3px solid #ff9800; font-weight:bold;">${c.url}</p>`) : ''}
+                    ${attachUrl && attachUrl !== '#' ? `<a href="${attachUrl}" target="_blank" rel="noopener noreferrer" class="btn-primary" style="align-self:flex-start; padding:8px 15px; font-size:14px;"><i class="fas fa-eye"></i> معاينة المرفق</a>` : ''}
                     <div style="font-size:12px; color:#888; font-weight:bold; margin-top:5px;"><i class="far fa-calendar-alt"></i> ${c.date}</div>
                 </div>
             `}).join('');
