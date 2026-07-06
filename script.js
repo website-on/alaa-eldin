@@ -440,10 +440,18 @@ window.renderCards = function (containerId, items, whatsappPrefix, btnText, isMy
                 btnHtml = `<button onclick="window.open('${ytLink}', '_blank')" class="btn-primary w-100" style="width:100%; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32);"><i class="fas fa-play-circle" style="font-size:24px;"></i> شاهد الفيديو الآن </button>`;
             } else {
                 let originalPdf = item.pdfUrl || '#';
-                let pdfLink = originalPdf !== '#' ? `https://docs.google.com/viewer?url=${encodeURIComponent(originalPdf)}&embedded=true` : '#';
+                let pdfLink = originalPdf;
+
+                if (pdfLink.includes('drive.google.com')) {
+                    pdfLink = pdfLink.replace('/view', '/preview').replace('usp=share_link', '').replace('usp=sharing', '');
+                } else if (pdfLink !== '#') {
+                    if (!pdfLink.includes('#toolbar=0')) {
+                        pdfLink += (pdfLink.includes('?') ? '&' : '#') + 'toolbar=0';
+                    }
+                }
+
                 btnHtml = `<div style="display:flex; gap:10px; width:100%;">
-                    <a href="${originalPdf}" target="_blank" class="btn-primary" style="flex:1; text-align:center; padding:15px; border-radius:12px; font-size:16px; background:linear-gradient(135deg, #12b8c5, #1e3c72); text-decoration:none;"><i class="fas fa-download"></i> تحميل</a>
-                    <a href="${pdfLink}" target="_blank" class="btn-primary" style="flex:2; text-align:center; padding:15px; border-radius:12px; font-size:16px; background:linear-gradient(135deg, #4caf50, #2e7d32); text-decoration:none;"><i class="fas fa-book-open"></i> تصفح الكتاب </a>
+                    <a href="${pdfLink}" target="_blank" class="btn-primary w-100" style="text-align:center; padding:15px; border-radius:12px; font-size:18px; background:linear-gradient(135deg, #4caf50, #2e7d32); text-decoration:none;"><i class="fas fa-book-open"></i> تصفح المذكرة </a>
                 </div>`;
             }
         } else {
@@ -1083,15 +1091,22 @@ window.loadStudentData = async function (user) {
         }
         let myFiles = aFiles.filter(a => a.grade === String(user.grade));
         if (myFiles.length) {
-            adminFilesCont.innerHTML = myFiles.map(f => `
+            adminFilesCont.innerHTML = myFiles.map(f => {
+                let dUrl = f.url || '#';
+                if (dUrl.includes('drive.google.com')) {
+                    dUrl = dUrl.replace('/view', '/preview').replace('usp=share_link', '').replace('usp=sharing', '');
+                } else if (dUrl !== '#') {
+                    if (!dUrl.includes('#toolbar=0')) dUrl += (dUrl.includes('?') ? '&' : '#') + 'toolbar=0';
+                }
+                return `
                 <div class="animate-on-scroll" style="background:#f4f7fa; border:1px solid #ccc; border-radius:12px; padding:15px; display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <h4 style="font-weight:700; color:#444;">${f.title}</h4>
                         <span style="font-size:12px; color:#888;">${f.date}</span>
                     </div>
-                    <a href="${f.url}" target="_blank" class="btn-primary" style="background:var(--primary-dark); padding:8px 15px; font-size:14px;"><i class="fas fa-download"></i> معاينة</a>
+                    <a href="${dUrl}" target="_blank" class="btn-primary" style="background:var(--primary-dark); padding:8px 15px; font-size:14px;"><i class="fas fa-eye"></i> تصفح/معاينة</a>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             adminFilesCont.innerHTML = '<p style="color:#888; font-weight:600;">لا توجد ملفات جديدة من الإدارة.</p>';
         }
@@ -1109,17 +1124,25 @@ window.loadStudentData = async function (user) {
             cFiles = localCC.filter(c => c.studentCode === user.code);
         }
         if (cFiles.length) {
-            customCont.innerHTML = cFiles.map(c => `
+            customCont.innerHTML = cFiles.map(c => {
+                let attachUrl = c.fileUrl || '';
+                if (attachUrl.includes('drive.google.com')) {
+                    attachUrl = attachUrl.replace('/view', '/preview').replace('usp=share_link', '').replace('usp=sharing', '');
+                } else if (attachUrl) {
+                    if (!attachUrl.includes('#toolbar=0')) attachUrl += (attachUrl.includes('?') ? '&' : '#') + 'toolbar=0';
+                }
+
+                return `
                 <div class="animate-on-scroll" style="background:#fff; border-right:5px solid #12b8c5; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:10px; box-shadow:0 5px 15px rgba(0,0,0,0.05);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h4 style="font-weight:800; font-size:18px; color:#121e33;">${c.title}</h4>
                         <span style="font-size:12px; background:#e8fbff; color:#12b8c5; padding:5px 10px; border-radius:5px; font-weight:bold;">${c.type}</span>
                     </div>
                     ${c.url ? (c.url.includes('http') || c.url.includes('www.') || c.url.includes('.com') ? `<a href="${c.url.startsWith('http') ? c.url : 'https://' + c.url}" target="_blank" style="color:#f44336; font-weight:bold; text-decoration:underline; font-size:14px;"><i class="fas fa-external-link-alt"></i> فتح الرابط المرفق</a>` : `<p style="font-size:15px; color:#444; background:#f4f7fa; padding:10px; border-radius:8px; border-right:3px solid #ff9800; font-weight:bold;">${c.url}</p>`) : ''}
-                    ${c.fileUrl ? `<a href="${c.fileUrl}" target="_blank" class="btn-primary" style="align-self:flex-start; padding:8px 15px; font-size:14px;"><i class="fas fa-download"></i> تحميل المرفق</a>` : ''}
+                    ${attachUrl ? `<a href="${attachUrl}" target="_blank" class="btn-primary" style="align-self:flex-start; padding:8px 15px; font-size:14px;"><i class="fas fa-eye"></i> معاينة المرفق</a>` : ''}
                     <div style="font-size:12px; color:#888; font-weight:bold; margin-top:5px;"><i class="far fa-calendar-alt"></i> ${c.date}</div>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             customCont.innerHTML = '<p style="color:#888; font-weight:600;">لا يوجد محتوى مخصص لك حالياً.</p>';
         }
