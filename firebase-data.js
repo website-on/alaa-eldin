@@ -18,25 +18,68 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 window.fsData = {
     // STORAGE
     uploadFile: async (file, path) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'alaa-eldin');
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+            return await window.fsData.uploadPdfToFirebase(file);
+        }
 
-        const response = await fetch('https://api.cloudinary.com/v1_1/dt1nytaju/auto/upload', {
-            method: 'POST',
-            body: formData
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            throw new Error('نوع الملف غير مدعوم. مسموح فقط بـ JPG, PNG, WEBP.');
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            throw new Error('حجم الملف يتجاوز الحد الأقصى (5 ميجابايت).');
+        }
+
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', 'tcpojbhv');
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'https://api.cloudinary.com/v1_1/dt1nytaju/image/upload', true);
+
+            let progressMsg = document.getElementById('upload-progress-msg');
+            if (!progressMsg) {
+                progressMsg = document.createElement('div');
+                progressMsg.id = 'upload-progress-msg';
+                progressMsg.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:#fff; padding:10px 20px; border-radius:10px; z-index:999999; display:flex; align-items:center; gap:10px; font-weight:bold; box-shadow:0 5px 15px rgba(0,0,0,0.2);';
+                progressMsg.innerHTML = '<span>جاري الرفع...</span> <span id="upload-percent">0%</span>';
+                document.body.appendChild(progressMsg);
+            }
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100);
+                    let p = document.getElementById('upload-percent');
+                    if (p) p.innerText = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = () => {
+                if (document.body.contains(progressMsg)) progressMsg.remove();
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        let url = data.secure_url;
+                        if (data.resource_type === 'image' && url) {
+                            url = url.replace('/upload/', '/upload/f_auto,q_auto/');
+                        }
+                        resolve(url);
+                    } catch (err) {
+                        reject(new Error('Failed to parse Cloudinary response.'));
+                    }
+                } else {
+                    reject(new Error(`Cloudinary upload failed: ${xhr.statusText}`));
+                }
+            };
+
+            xhr.onerror = () => {
+                if (document.body.contains(progressMsg)) progressMsg.remove();
+                reject(new Error('Network error occurred during Cloudinary upload.'));
+            };
+
+            xhr.send(formData);
         });
-
-        if (!response.ok) {
-            throw new Error(`Cloudinary upload failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        let url = data.secure_url;
-        if (data.resource_type === 'image' && url) {
-            url = url.replace('/upload/', '/upload/f_auto,q_auto/');
-        }
-        return url;
     },
 
     uploadPdfToFirebase: async (file) => {
