@@ -1493,33 +1493,19 @@ window.injectWhatsAppButton = function () {
 window.uploadToCloudinary = async function (file) {
     if (!file) throw new Error("الملف غير موجود");
 
-    if (file.name.toLowerCase().endsWith('.pdf')) {
-        if (window.fsData && window.fsData.uploadPdfToFirebase) {
-            const progressMsg = document.createElement('div');
-            progressMsg.id = 'upload-progress-msg';
-            progressMsg.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:#fff; padding:10px 20px; border-radius:10px; z-index:999999; box-shadow:0 5px 15px rgba(0,0,0,0.2);';
-            progressMsg.innerText = 'جاري رفع المذكرة... برجاء الانتظار';
-            document.body.appendChild(progressMsg);
+    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
 
-            try {
-                let url = await window.fsData.uploadPdfToFirebase(file);
-                return url;
-            } catch (e) {
-                throw new Error("فشل رفع المذكرة: " + e.message);
-            } finally {
-                if (document.body.contains(progressMsg)) progressMsg.remove();
-            }
-        } else {
-            throw new Error("نظام رفع المذكرات غير متصل (Firebase Storage).");
-        }
+    if (!isPdf && !isImage && !isVideo) {
+        throw new Error('نوع الملف غير مدعوم. مسموح بالصور ومستندات PDF ومقاطع الفيديو فقط.');
     }
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-        throw new Error('نوع الملف غير مدعوم. مسموح فقط بـ JPG, PNG, WEBP.');
+    if ((isPdf || isImage) && file.size > 20 * 1024 * 1024) {
+        throw new Error('حجم الملف يتجاوز الحد الأقصى (20 ميجابايت).');
     }
-    if (file.size > 5 * 1024 * 1024) {
-        throw new Error('حجم الملف يتجاوز الحد الأقصى (5 ميجابايت).');
+    if (isVideo && file.size > 150 * 1024 * 1024) {
+        throw new Error('حجم الفيديو يتجاوز الحد الأقصى (150 ميجابايت).');
     }
 
     return new Promise((resolve, reject) => {
@@ -1528,14 +1514,15 @@ window.uploadToCloudinary = async function (file) {
         formData.append('upload_preset', 'tcpojbhv');
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://api.cloudinary.com/v1_1/dt1nytaju/image/upload', true);
+        xhr.open('POST', 'https://api.cloudinary.com/v1_1/dt1nytaju/auto/upload', true);
 
         let progressMsg = document.getElementById('upload-progress-msg');
         if (!progressMsg) {
             progressMsg = document.createElement('div');
             progressMsg.id = 'upload-progress-msg';
             progressMsg.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--primary-color); color:#fff; padding:10px 20px; border-radius:10px; z-index:999999; display:flex; align-items:center; gap:10px; font-weight:bold; box-shadow:0 5px 15px rgba(0,0,0,0.2);';
-            progressMsg.innerHTML = '<span>جاري الرفع...</span> <span id="upload-percent">0%</span>';
+            let msgText = isPdf ? 'المذكرة' : (isVideo ? 'الفيديو' : 'الصورة');
+            progressMsg.innerHTML = `<span>جاري رفع ${msgText}...</span> <span id="upload-percent">0%</span>`;
             document.body.appendChild(progressMsg);
         }
 
@@ -1567,7 +1554,7 @@ window.uploadToCloudinary = async function (file) {
 
         xhr.onerror = () => {
             if (document.body.contains(progressMsg)) progressMsg.remove();
-            reject(new Error('Network error occurred during Cloudinary upload.'));
+            reject(new Error('Network error occurred during upload.'));
         };
 
         xhr.send(formData);
