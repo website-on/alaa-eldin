@@ -422,12 +422,10 @@ window.formatPdfUrl = function (url) {
     if (!url || typeof url !== 'string' || url === '#') return '#';
     let clean = url.trim();
 
-    // Use Google Docs Viewer for non-Google Drive PDFs to ensure all pages are displayed correctly
-    if (clean.toLowerCase().includes('.pdf') && !clean.includes('drive.google.com') && clean.startsWith('http')) {
-        if (clean.includes('cloudinary.com')) {
-            clean = clean.replace(/\/upload\/f_auto,q_auto\//i, '/upload/');
-        }
-        return `https://docs.google.com/gview?url=${encodeURIComponent(clean)}&embedded=true`;
+    // Use Native Viewer for Cloudinary PDFs and just remove the f_auto which squashes them into 1 page
+    if (clean.toLowerCase().includes('.pdf') && clean.includes('cloudinary.com')) {
+        clean = clean.replace(/\/upload\/f_auto,q_auto\//i, '/upload/');
+        return clean;
     }
 
     if (clean.includes('drive.google.com') && clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)) {
@@ -1550,7 +1548,9 @@ window.uploadToCloudinary = async function (file) {
                     const data = JSON.parse(xhr.responseText);
                     let url = data.secure_url;
                     if (data.resource_type === 'image' && url) {
-                        url = url.replace('/upload/', '/upload/f_auto,q_auto/');
+                        if (!isPdf) {
+                            url = url.replace('/upload/', '/upload/f_auto,q_auto/');
+                        }
                     }
                     resolve(url);
                 } catch (err) {
