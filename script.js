@@ -422,9 +422,12 @@ window.formatPdfUrl = function (url) {
     if (!url || typeof url !== 'string' || url === '#') return '#';
     let clean = url.trim();
 
-    // Fix existing Cloudinary PDFs that were saved with f_auto,q_auto which converts them to a single-page image
-    if (clean.includes('cloudinary.com') && clean.toLowerCase().includes('.pdf')) {
-        clean = clean.replace(/\/upload\/f_auto,q_auto\//i, '/upload/');
+    // Use Google Docs Viewer for non-Google Drive PDFs to ensure all pages are displayed correctly
+    if (clean.toLowerCase().includes('.pdf') && !clean.includes('drive.google.com') && clean.startsWith('http')) {
+        if (clean.includes('cloudinary.com')) {
+            clean = clean.replace(/\/upload\/f_auto,q_auto\//i, '/upload/');
+        }
+        return `https://docs.google.com/gview?url=${encodeURIComponent(clean)}&embedded=true`;
     }
 
     if (clean.includes('drive.google.com') && clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)) {
@@ -458,7 +461,7 @@ window.renderCards = function (containerId, items, whatsappPrefix, btnText, isMy
 
         let btnHtml = '';
         let unlocked = JSON.parse(localStorage.getItem('spedia_unlocked') || '[]');
-        let isUnlocked = unlocked.includes(item.title);
+        let isUnlocked = true; // تم إزالة قفل الكود وأصبحت الكورسات والمذكرات متاحة للفتح مباشرة
 
         if (isUnlocked) {
             if (item.type === 'course') {
@@ -1546,7 +1549,7 @@ window.uploadToCloudinary = async function (file) {
                 try {
                     const data = JSON.parse(xhr.responseText);
                     let url = data.secure_url;
-                    if (data.resource_type === 'image' && url && !isPdf) {
+                    if (data.resource_type === 'image' && url) {
                         url = url.replace('/upload/', '/upload/f_auto,q_auto/');
                     }
                     resolve(url);
