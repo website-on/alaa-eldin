@@ -421,6 +421,12 @@ window.renderCurrentPage = async function () {
 window.formatPdfUrl = function (url) {
     if (!url || typeof url !== 'string' || url === '#') return '#';
     let clean = url.trim();
+
+    // Fix existing Cloudinary PDFs that were saved with f_auto,q_auto which converts them to a single-page image
+    if (clean.includes('cloudinary.com') && clean.toLowerCase().includes('.pdf')) {
+        clean = clean.replace(/\/upload\/f_auto,q_auto\//i, '/upload/');
+    }
+
     if (clean.includes('drive.google.com') && clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)) {
         let match = clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
         return `https://docs.google.com/document/d/${match[1]}/preview`;
@@ -1540,7 +1546,7 @@ window.uploadToCloudinary = async function (file) {
                 try {
                     const data = JSON.parse(xhr.responseText);
                     let url = data.secure_url;
-                    if (data.resource_type === 'image' && url) {
+                    if (data.resource_type === 'image' && url && !isPdf) {
                         url = url.replace('/upload/', '/upload/f_auto,q_auto/');
                     }
                     resolve(url);
