@@ -424,7 +424,7 @@ window.formatPdfUrl = function (url) {
 
     // Use PDF_Viewer.html (PDF.js) for Cloudinary PDFs to ensure all pages open seamlessly
     if (clean.toLowerCase().includes('.pdf') && clean.includes('cloudinary.com')) {
-        clean = clean.replace(/\/upload\/.+?\//i, '/upload/');
+        // Just pass the URL exactly as is, since uploadToCloudinary already skipped adding f_auto for PDFs
         return 'pdf_viewer.html?file=' + encodeURIComponent(clean);
     }
 

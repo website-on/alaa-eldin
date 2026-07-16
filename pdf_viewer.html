@@ -127,8 +127,8 @@
         if (!url) {
             document.getElementById('loading').innerText = 'لم يتم تحديد ملف';
         } else {
-            // Remove transformations for cloudinary
-            url = url.replace(/\/upload\/.+?\//i, '/upload/');
+            // Remove f_auto or any transformations if they somehow exist without breaking the version
+            url = url.replace(/\/upload\/(f_auto,q_auto|q_auto,f_auto|f_auto|q_auto)\//ig, '/upload/');
 
             let pdfDoc = null;
             let scale = 1.2;
