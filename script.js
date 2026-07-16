@@ -422,10 +422,10 @@ window.formatPdfUrl = function (url) {
     if (!url || typeof url !== 'string' || url === '#') return '#';
     let clean = url.trim();
 
-    // Use Google Docs Viewer for Cloudinary PDFs to ensure all pages open seamlessly
+    // Use PDF_Viewer.html (PDF.js) for Cloudinary PDFs to ensure all pages open seamlessly
     if (clean.toLowerCase().includes('.pdf') && clean.includes('cloudinary.com')) {
-        clean = clean.replace(/\/upload\/f_auto,q_auto\//i, '/upload/');
-        return 'https://docs.google.com/viewer?url=' + encodeURIComponent(clean);
+        clean = clean.replace(/\/upload\/.+?\//i, '/upload/');
+        return 'pdf_viewer.html?file=' + encodeURIComponent(clean);
     }
 
     if (clean.includes('drive.google.com') && clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)) {
