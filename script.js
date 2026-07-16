@@ -422,10 +422,11 @@ window.formatPdfUrl = function (url) {
     if (!url || typeof url !== 'string' || url === '#') return '#';
     let clean = url.trim();
 
-    // Use PDF_Viewer.html (PDF.js) for Cloudinary PDFs to ensure all pages open seamlessly
+    // Rely completely on Cloudinary for PDF delivery
+    // Remove f_auto if it accidentally exists, since it limits PDFs to 1 page
     if (clean.toLowerCase().includes('.pdf') && clean.includes('cloudinary.com')) {
-        // Just pass the URL exactly as is, since uploadToCloudinary already skipped adding f_auto for PDFs
-        return 'pdf_viewer.html?file=' + encodeURIComponent(clean);
+        clean = clean.replace(/\/upload\/(f_auto,q_auto|q_auto,f_auto|f_auto|q_auto)\//ig, '/upload/');
+        return clean; // Direct Cloudinary link
     }
 
     if (clean.includes('drive.google.com') && clean.match(/\/document\/d\/([a-zA-Z0-9_-]+)/)) {
