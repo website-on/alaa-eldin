@@ -26,7 +26,8 @@
             margin: 10px auto;
             display: block;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-            max-width: 100%;
+            /* Remove max-width: 100% to allow proper zooming and avoid aspect ratio distortion */
+            max-width: none;
         }
 
         #loading {
@@ -153,11 +154,26 @@
                     const canvas = document.createElement('canvas');
                     canvas.className = 'pdf-page';
                     const ctx = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+
+                    // Boost resolution based on device DPI for high-quality text, especially on mobile.
+                    // Use a minimum of 2 for mobile standard screens so it's guaranteed sharp.
+                    const outputScale = window.devicePixelRatio || 1;
+                    const renderScale = Math.max(outputScale, 2);
+
+                    canvas.width = Math.floor(viewport.width * renderScale);
+                    canvas.height = Math.floor(viewport.height * renderScale);
+
+                    // Constrain the CSS dimensions to the logical viewport size
+                    canvas.style.width = Math.floor(viewport.width) + "px";
+                    canvas.style.height = Math.floor(viewport.height) + "px";
+
+                    const transform = renderScale !== 1
+                        ? [renderScale, 0, 0, renderScale, 0, 0]
+                        : null;
 
                     const renderContext = {
                         canvasContext: ctx,
+                        transform: transform,
                         viewport: viewport
                     };
 
