@@ -3,52 +3,56 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>عرض المذكرة - منصة علاء الدين</title>
     <style>
         body,
         html {
             margin: 0;
             padding: 0;
-            height: 100%;
-            background-color: #333;
-            overflow: hidden;
+            background-color: #2b2b2b;
+            /* Allow native scrolling for better pinch-to-zoom */
+            font-family: 'Tajawal', sans-serif;
+            scroll-behavior: smooth;
         }
 
         #pdf-container {
             width: 100%;
-            height: 100%;
-            overflow: auto;
-            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .pdf-page {
-            margin: 10px auto;
+            margin: 10px auto 25px auto;
             display: block;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-            /* Remove max-width: 100% to allow proper zooming and avoid aspect ratio distortion */
-            max-width: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            background-color: white;
+            /* width and height are handled by Javascript */
+            max-width: 100%;
+            height: auto !important;
+            /* Prevents vertical stretching distortion */
         }
 
         #loading {
             color: white;
-            font-family: 'Tajawal', sans-serif;
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 24px;
+            font-size: 20px;
             text-align: center;
+            z-index: 2000;
         }
 
         .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #4caf50;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             animation: spin 1s linear infinite;
-            margin: 10px auto;
+            margin: 0 auto 15px auto;
         }
 
         @keyframes spin {
@@ -62,57 +66,72 @@
         }
 
         #header-controls {
-            position: fixed;
+            position: sticky;
             top: 0;
-            left: 0;
             width: 100%;
-            background: #222;
+            background: #1a1a1a;
             color: #fff;
-            padding: 10px;
+            padding: 12px 10px;
             z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
             display: flex;
             justify-content: center;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
+            box-sizing: border-box;
+            flex-wrap: wrap;
         }
 
         button {
             background: #4caf50;
             color: white;
             border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
+            padding: 8px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: background 0.3s;
         }
 
         button:hover {
             background: #388e3c;
         }
 
+        #fallback-btn {
+            background: #ff9800;
+        }
+
+        #fallback-btn:hover {
+            background: #e68a00;
+        }
+
+        #page-count {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+
         #pdf-container-wrapper {
-            margin-top: 50px;
-            height: calc(100% - 50px);
-            overflow: auto;
+            padding: 10px 5px 40px 5px;
         }
     </style>
-    <!-- PDF.js library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <!-- Modern PDF.js (v3) for vastly superior Arabic/RTL shaping and rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 
 <body>
 
     <div id="loading">
         <div class="spinner"></div>
-        جاري تحميل الكتاب، يرجى الانتظار...
+        <div id="loading-text">جاري إعداد المذكرة...</div>
     </div>
 
     <div id="header-controls">
         <button id="zoom-out">تصغير</button>
         <button id="zoom-in">تكبير</button>
-        <span id="page-count" style="font-family: Tajawal, sans-serif;"></span>
+        <span id="page-count"></span>
+        <button id="fallback-btn" style="display: none;">عرض سيرفر</button>
     </div>
 
     <div id="pdf-container-wrapper">
@@ -120,107 +139,133 @@
     </div>
 
     <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        // Setup PDF.js worker using exact matching version
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         const params = new URLSearchParams(window.location.search);
         let url = params.get('file');
 
-        if (!url) {
-            document.getElementById('loading').innerText = 'لم يتم تحديد ملف';
-        } else {
-            // Remove f_auto or any transformations if they somehow exist without breaking the version
-            url = url.replace(/\/upload\/(f_auto,q_auto|q_auto,f_auto|f_auto|q_auto)\//ig, '/upload/');
+        const loadingText = document.getElementById('loading-text');
 
-            // Fix 401 Error: Cloudinary blocks inline delivery of PDFs for security on new accounts.
-            // Adding fl_attachment ensures Cloudinary serves the file, and pdf.js ignores the attachment header and displays it seamlessly.
+        if (!url) {
+            loadingText.innerText = 'الرابط غير صحيح أو لم يتم تحديد ملف';
+            document.querySelector('.spinner').style.display = 'none';
+        } else {
+            // Cloudinary adjustments
+            url = url.replace(/\/upload\/(f_auto,q_auto|q_auto,f_auto|f_auto|q_auto)\//ig, '/upload/');
             if (url.includes('cloudinary.com') && url.includes('/upload/') && !url.includes('fl_attachment')) {
                 url = url.replace('/upload/', '/upload/fl_attachment/');
             }
-
             if (!url.startsWith('http') && !url.startsWith('//')) {
                 url = 'https://' + url;
             }
 
             let pdfDoc = null;
-            let scale = 1.2;
+            let scale = window.innerWidth <= 768 ? 1.0 : 1.5;
             const container = document.getElementById('pdf-container');
+            const fallbackBtn = document.getElementById('fallback-btn');
 
-            // Responsive scale based on screen width
-            if (window.innerWidth < 600) scale = window.innerWidth / 600; // fit width approximately
+            fallbackBtn.onclick = () => {
+                showFallback();
+            };
 
-            const renderPage = (num) => {
-                return pdfDoc.getPage(num).then(page => {
-                    const viewport = page.getViewport({ scale: scale });
-                    const canvas = document.createElement('canvas');
-                    canvas.className = 'pdf-page';
-                    const ctx = canvas.getContext('2d');
+            const showFallback = () => {
+                document.getElementById('zoom-in').style.display = 'none';
+                document.getElementById('zoom-out').style.display = 'none';
+                fallbackBtn.style.display = 'none';
 
-                    // Boost resolution based on device DPI for high-quality text, especially on mobile.
-                    // Use a minimum of 2 for mobile standard screens so it's guaranteed sharp.
-                    const outputScale = window.devicePixelRatio || 1;
-                    const renderScale = Math.max(outputScale, 2);
+                container.innerHTML = `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true" style="width:100%; height:85vh; border:none; background:#fff;"></iframe>
+                <div style="padding:15px; text-align:center; color:#fff; font-family:Tajawal, sans-serif;">
+                    إذا لم تظهر المذكرة، <a href="${url}" target="_blank" style="color:#00e5ff; font-weight:bold; text-decoration:underline;">اضغط هنا للتحميل المباشر</a>
+                </div>`;
+            };
 
-                    canvas.width = Math.floor(viewport.width * renderScale);
-                    canvas.height = Math.floor(viewport.height * renderScale);
+            const renderPage = async (num) => {
+                const page = await pdfDoc.getPage(num);
+                const viewport = page.getViewport({ scale: scale });
 
-                    // Constrain the CSS dimensions to the logical viewport size
-                    canvas.style.width = Math.floor(viewport.width) + "px";
-                    canvas.style.height = Math.floor(viewport.height) + "px";
+                const canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page';
+                const ctx = canvas.getContext('2d');
 
-                    const transform = renderScale !== 1
-                        ? [renderScale, 0, 0, renderScale, 0, 0]
-                        : null;
+                // Radical rendering fix: boost DPI mapping ensuring razor-sharp pixels on phones (Retina fix)
+                const outputScale = window.devicePixelRatio || 1;
+                const renderScale = Math.max(outputScale, 2);
 
-                    const renderContext = {
-                        canvasContext: ctx,
-                        transform: transform,
-                        viewport: viewport
-                    };
+                canvas.width = Math.floor(viewport.width * renderScale);
+                canvas.height = Math.floor(viewport.height * renderScale);
 
-                    container.appendChild(canvas);
-                    return page.render(renderContext).promise;
-                });
+                // Pure CSS layout vs Canvas internal resolution trick
+                canvas.style.width = Math.floor(viewport.width) + "px";
+                // Crucial: Let height be 'auto' via CSS to avoid squishing/stretching letters
+
+                const transform = renderScale !== 1
+                    ? [renderScale, 0, 0, renderScale, 0, 0]
+                    : null;
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    transform: transform,
+                    viewport: viewport
+                };
+
+                container.appendChild(canvas);
+
+                // Allow page to render, yield thread occasionally for UI updates
+                await page.render(renderContext).promise;
             };
 
             const renderAllPages = async () => {
-                for (let i = 1; i <= pdfDoc.numPages; i++) {
-                    await renderPage(i);
+                try {
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        loadingText.innerText = `جاري تحميل صفحة ${i} من ${pdfDoc.numPages}...`;
+                        await renderPage(i);
+                    }
+                    document.getElementById('loading').style.display = 'none';
+                    fallbackBtn.style.display = 'inline-block';
+                } catch (err) {
+                    console.error('Error rendering pages:', err);
+                    document.getElementById('loading').style.display = 'none';
+                    showFallback();
                 }
-                document.getElementById('loading').style.display = 'none';
             };
 
             const loadPdf = () => {
                 document.getElementById('loading').style.display = 'block';
                 container.innerHTML = '';
 
-                // Cloudinary PDFs often require disableRange to prevent range errors and CORS blocks.
-                pdfjsLib.getDocument({
+                // Enable font Maps to fix random disconnected and wrong Arabic characters
+                const loadingTask = pdfjsLib.getDocument({
                     url: url,
-                    disableRange: true
-                }).promise.then(doc => {
+                    disableRange: true, // Prevents CORS partial range errors
+                    cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                    cMapPacked: true,
+                    standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
+                    useSystemFonts: true
+                });
+
+                loadingTask.promise.then(doc => {
                     pdfDoc = doc;
-                    document.getElementById('page-count').innerText = `عدد الصفحات: ${doc.numPages}`;
+                    document.getElementById('page-count').innerText = `الصفحات: ${doc.numPages}`;
                     renderAllPages();
                 }).catch(err => {
                     console.error('PDF.js Error:', err);
-                    // Fallback automatically to Google Docs Viewer if PDF.js encounters any CORS/Loading error
                     document.getElementById('loading').style.display = 'none';
-                    document.getElementById('header-controls').style.display = 'none';
-                    container.innerHTML = `<iframe src="https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true" style="width:100%; height:80vh; border:none; background:#fff;"></iframe>
-                    <div style="padding:15px; color:#fff;">إذا لم تظهر المذكرة، <a href="${url}" target="_blank" style="color:#ffeb3b; font-weight:bold;">اضغط هنا لتحميلها مباشرة</a></div>`;
+                    showFallback();
                 });
             };
 
             loadPdf();
 
+            // Zoom logic keeps quality pristine because it resets the internal canvas width/height
             document.getElementById('zoom-in').addEventListener('click', () => {
-                scale += 0.2;
+                scale += 0.25;
                 loadPdf();
             });
 
             document.getElementById('zoom-out').addEventListener('click', () => {
-                if (scale > 0.4) {
-                    scale -= 0.2;
+                if (scale > 0.5) {
+                    scale -= 0.25;
                     loadPdf();
                 }
             });
